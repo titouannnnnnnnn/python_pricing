@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from class_pricing.class_option import Option
 from class_pricing.class_market import Market
 from class_pricing.class_tree import Tree
-from class_pricing.function import calculate_forward_price
+from class_pricing.function import calculate_forward_price, calculate_discount_price
 import numpy as np
 import math
 import datetime
@@ -31,6 +31,7 @@ class Node:
         # mettre dans init les autres trucs du bas genre esperance, variance, proba up mid and down
 
     def calculate_proba(self)->float:
+
         esperance=self.spot_price * calculate_forward_price(sqrt(3)) - self.market.dividend_price
         variance= (self.spot_price **2) * exp(2*self.market.interest_rates * self.tree.delta_t) * (exp(self.market.volatility**2 * self.tree.delta_t) -1)
 
@@ -43,7 +44,7 @@ class Node:
             raise ValueError('The sum of the probabilities down + mid + up must be equal to 1')
         
     def calculate_state(self) -> float:
-
+        re
 
     def calculate_option(self) -> float:
         
@@ -62,14 +63,32 @@ class Node:
     def calculate_option_value(self) -> float :
         #arranger calculate_option avec calculate_option_type afin de compute au bon endroit
         if next_node = "up":
-            self.otption_value = self.up_price
+            self.option_value = self.up_price
         elif next_node= "down":
-            self.otption_value=self.down_price
+            self.option_value=self.down_price
         elif next_node= "mid":
-            self.otption_value=self.mid_price
+            self.option_value=self.mid_price
         else:
             raise ValueError("You may have a problem, please look")
     
-    def __str__(self):
+
+    def price (self, option:Option) -> float:
+        if self.nextmid is None:
+            self.option_value = option.payoff(self.spot)
+        elif self.option_value!=0:
+            self.option_value = calculate_discount_price * (self.proba_up * self.up_price + 
+            self.proba_mid * self.mid_price + self.proba_down * self.down_price)
+        elif option.option_type == "am":
+            self.option_value= max(self.option_value, option.payoff(self.spot_price))
+        else :
+            raise ValueError("Problem about the function price, please look at node class")
+
+        return self.option_value
+                                                            
+
+
+
+
+    def __str__(self) -> str:
         return f'About the market information, we have/n - spot price is equal to {self.spot_price:.2f}/n - volatility which is equal to {self.market.volatility:.2f}'
         

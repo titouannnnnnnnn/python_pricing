@@ -19,6 +19,14 @@ class Option:
     strike_price: float
     maturity_date: datetime
 
+    def payoff(self,spot) -> float:
+        if self.option.option_type== "call":
+            return max(0 , spot - self.strike_price)
+        elif self.otpion.option_type == "put":
+            return max (0 , self.strike_price - spot)
+        else:
+            raise ValueError("Wrong input, please be careful, insert call or put")
+
     #class option avec :
     # - type opyion
     # - type exercise
