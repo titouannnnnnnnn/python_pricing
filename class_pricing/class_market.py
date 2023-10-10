@@ -17,7 +17,7 @@ class Market:
 
     interest_rate: float
     volatility: float
-    start_date: datetime
+    #start_date: datetime
     spot_price: float
     dividend_price: float
     dividend_ex_date: datetime
