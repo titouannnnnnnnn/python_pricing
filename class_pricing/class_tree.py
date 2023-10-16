@@ -1,81 +1,161 @@
 from datetime import datetime
-from dataclasses import dataclass
 from class_pricing.class_option import Option
 from class_pricing.class_market import Market
-from class_pricing.class_node import Node
-import numpy as np
-from datetime import timedelta
+#from class_pricing.class_node import Node
+from .class_node import Node
 import datetime
-from scipy.stats import norm
-from math import exp, sqrt, log
-from class_pricing.function import calculate_alpha, calculate_delta_t
+from math import sqrt
+from class_pricing.function import calculate_alpha, calculate_delta_t, calculate_forward_price
 
 
 class Tree:
+
     nb_days=365
 
 
-    def __init__(self,
+    def __init__(
+    self,
     market:Market, 
-    option:Option, 
+    option:Option,
     pricing_date : datetime, 
     nb_steps : int
     ):
         
-        self.option = option
         self.market = market
-        self.nb_steps = nb_steps
+        self.option = option
         self.pricing_date = pricing_date
-        self.root=Node(self,self.market.spot_price)
+        self.nb_steps = nb_steps
+        
+        
 
-        self.parent = None
+        #self.parent = None
 
-        if pricing_date>self.option.maturity_date:
+        if self.pricing_date>self.option.maturity_date:
             raise ValueError("Pricing date must be before the maturity date")
         else:
             self.delta_t = calculate_delta_t(self.option.maturity_date, self.pricing_date, self.nb_steps, self.nb_days)
             #=((maturity_date-pricing_date)/nb_steps)/365
             #why 365 ? to have the number in year, i.e x/365
+            self.alpha = calculate_alpha(self.market.volatility, self.delta_t, sqrt(3))
 
-        self.alpha = calculate_alpha(self.market.volatility, self.delta_t, sqrt(3))
+
+        self.root=Node(self.market,self,self.market.spot_price)
+        #point de depart = root
 
         self.build_tree()
 
 
     def build_tree(self):
-        current_node=self.root
-        for i in range(self.nb_steps):
-            current_node=self.build_node_column(current_node)
+        n=self.root 
+        for i in range(self.nb_steps): #construit avec la boucle for le nb de noeud et donc le nb de root de 0 a T
+            n=self.build_node_column(n) #pour chaque noeud, il faut construire les noeud du bas => def build_node_column
+        #dividende ? car pas le n steps dans node
 
-    def build_node_column(self,current_node)-> Node:
-        next_node= Node()
-        # next_node = self.build_next_gen(current_node)
-        # if current_node.get_mid()is not None:
-        #     current_node.connect_node(next_node)
-        #     current_node=self.move_up(current_node)
-        # return current_node
-    
-    def build_next_gen(self,current_node):
-        self.up_price = current_node.spot_price * self.tree.alpha
-        self.down_price = current_node.spot_price / self.tree.alpha
-        self.mid_price = current_node.forward_price
-        return Node(self.market,self,)
-    
-    def move_up(self,current_node):
-        while current_node.get_mid() is None:
-            current_node = current_node.parent
-        return current_node.get_mid()
-    
-    def connect_node(self, next_node):
-        self.next_up = next_node.up
-        self.next_down = next_node.down
-        self.next_mid = next_node
-        next_node.parent = self
+    def build_node_column(self,n : Node)-> Node:
+        next_node= Node(self.market, self,n.forward_price)
 
-    def get_mid(self):
-        if self.next_mid is None:
-            return None
-        return self.next_mid
+        self.build_block(n)
+        n1 = n
+        while n1.down_node is not None: #tant que le noeud down != 0
+            n1=n1.down_node #on affecte a n1 le noeud down
+            n1.build_block(next_node) 
+            #a partir du noeud down(n1 donc) on construit les 3 prochains=es branches4
+
+        #on fait la meme pour l'etat up
+        n2 = n
+        while n2.up_node is not None:
+            n2=n2.up_node
+            n2.build_block(next_node)
+
+    # def build_node_column(self, n: Node) -> Node:
+        
+    #     next_node = Node(self.market, self, n.forward_price)
+        
+    #     if n.down_node is None:
+    #         ndown = Node(self.market, self, n.spot_price / self.alpha)
+    #         ndown.up_node = n
+    #         n.down_node = ndown
+    #     else:
+    #         ndown = n.down_node
+        
+    #     if n.up_node is None:
+    #         nup = Node(self.market, self, n.spot_price * self.alpha)
+    #         nup.down_node = n
+    #         n.up_node = nup
+    #     else:
+    #         nup = n.up_node
+        
+    #     self.next_mid = n
+    
+    #     return next_node
+ 
+    
+    # #construction des noeuds et des connections
+    # def build_block(self,next : Node):
+    #     nmid=self.get_mid(next)
+    #     if nmid.down_node is None:
+    #         ndown=Node(self.market,self,nmid.spot_price/self.alpha)
+    #         ndown.up_node=nmid
+    #         nmid.down_node=ndown
+    #     else:
+    #         ndown=nmid.down_node
+    #     if nmid.up_node is None:
+    #         nup=Node(self.market,self,nmid.spot_price*self.alpha)
+    #         nup.down_node=nmid
+    #         nmid.up_node=nup
+    #     else:
+    #         nup=nmid.up_node
+
+    #     #self.tree.next_mid=nmid
+    #     self.next_mid = nmid
+
+
+    # def is_close(self,forward) -> bool:
+    #     return self.spot_price * (1+1/self.alpha)/2 <= forward <= self.spot_price * (1+self.tree.alpha)/2
+
+
+    # def get_mid(self,next:Node):
+    #     forward= calculate_forward_price(self.market.spot_price, self.market.interest_rate, self.delta_t)
+    #     if next.is_close(forward): #regarder si None ou pas, avec debeuguuer
+    #         return next
+    #     elif forward > self.market.spot_price:
+    #         while not next.is_close(forward):
+    #             next=next.move_up()
+    #     else :
+    #         while not next.is_close(forward):
+    #             next=next.move_down()
+    #     return next 
+    
+
+    # def move_up(self)-> Node:
+    #     if self.up_node is None:
+    #         nup=
+    #     else:
+    #         nup=
+    
+
+    
+
+    # def move_down(self) -> Node:
+    #     if self.down_node is None:
+    #         ndown=
+    #     else:
+    #         ndown=self
+
+
+    
+
+
+    def print_tree(self, node=None, depth=0):
+        if node is None:
+            node = self.root
+
+        if node:
+            print("  " * depth + str(node))
+            self.print_tree(node.down_node, depth + 1)
+            self.print_tree(node.mid_node, depth + 1)
+            self.print_tree(node.up_node, depth + 1)
+
     
 
     def __str__(self) -> str:
@@ -127,6 +207,30 @@ class Tree:
     #         return False
 
 
+    
+    # def build_next_gen(self,current_node):
+    #     self.up_price = current_node.spot_price * self.tree.alpha
+    #     self.down_price = current_node.spot_price / self.tree.alpha
+    #     self.mid_price = current_node.forward_price
+    #     return Node(self.market,self,)
+    
+    # def move_up(self,current_node):
+    #     while current_node.get_mid() is None:
+    #         current_node = current_node.parent
+    #     return current_node.get_mid()
+    
+    # def connect_node(self, next_node):
+    #     self.next_up = next_node.up
+    #     self.next_down = next_node.down
+    #     self.next_mid = next_node
+    #     next_node.parent = self
+
+    # def get_mid(self):
+    #     if self.next_mid is None:
+    #         return None
+    #     return self.next_mid
+
+
         
 '''
 1) root = prix spot : premier point en t=0
@@ -176,3 +280,9 @@ otption_value
 	# 	while not next.is_close(fwd):
 	# 		next = next.move_down()
 	# return next
+
+
+'''
+pricing amercain - pricing europeen >0
+tester avec des rates < 0
+'''

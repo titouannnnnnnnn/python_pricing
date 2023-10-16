@@ -23,3 +23,5 @@ class Market:
     dividend_ex_date: datetime
 
     #declaration des variables dans des classes
+
+    
