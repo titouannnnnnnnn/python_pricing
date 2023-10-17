@@ -1,11 +1,11 @@
-from datetime import datetime
+from datetime import datetime as dt
 from class_pricing.class_option import Option
 from class_pricing.class_market import Market
-#from class_pricing.class_node import Node
-from .class_node import Node
+from class_pricing.class_node import Node
 import datetime
-from math import sqrt
-from class_pricing.function import calculate_alpha, calculate_delta_t, calculate_forward_price
+from datetime import timedelta
+from math import sqrt, exp
+#from class_pricing.function import calculate_alpha, calculate_delta_t
 
 
 class Tree:
@@ -26,27 +26,48 @@ class Tree:
         self.pricing_date = pricing_date
         self.nb_steps = nb_steps
         
-        
+        self.delta_t = self.calculate_delta_t()
+        #self.delta_t = self.calculate_bis_delta_t()
+        self.alpha = self.calculate_alpha()
+        #self.alpha = self.calculate_bis_alpha()
 
         #self.parent = None
 
-        if self.pricing_date>self.option.maturity_date:
-            raise ValueError("Pricing date must be before the maturity date")
-        else:
-            self.delta_t = calculate_delta_t(self.option.maturity_date, self.pricing_date, self.nb_steps, self.nb_days)
-            #=((maturity_date-pricing_date)/nb_steps)/365
-            #why 365 ? to have the number in year, i.e x/365
-            self.alpha = calculate_alpha(self.market.volatility, self.delta_t, sqrt(3))
+        # if self.pricing_date>self.option.maturity_date:
+        #     raise ValueError("Pricing date must be before the maturity date")
+        # else:
+        #     self.delta_t = calculate_delta_t(self.option.maturity_date, self.pricing_date, self.nb_steps, self.nb_days)
+        #     #=((maturity_date-pricing_date)/nb_steps)/365
+        #     #why 365 ? to have the number in year, i.e x/365
+        #     self.alpha = calculate_alpha(self.market.volatility, self.delta_t, sqrt(3))
 
 
         self.root=Node(self.market,self,self.market.spot_price)
         #point de depart = root
 
-        self.build_tree()
+        self.build_tree(self)
 
+    # def calculate_delta_t(maturity_date:datetime, pricing_date:datetime,nb_steps:int, nb_days:int) -> float:
+    #     return ((maturity_date - pricing_date).days / nb_steps) / nb_days
+    
+    def calculate_delta_t(self):
+        return (self.option.maturity_date - self.pricing_date).days /self.nb_steps / self.nb_days
+
+    def calculate_alpha(self) -> float:
+         return exp (self.market.volatility * sqrt (3* self.delta_t))
+    
+
+    # def calculate_bis_delta_t(self) -> float: #a regarder
+    #     delta_timedelta = self.option.maturity_date - self.pricing_date
+    #     delta_days = float(delta_timedelta.days)
+    #     return (delta_days / self.nb_steps )/ self.nb_days
+    #     #return ((self.option.maturity_date - self.pricing_date).days/self.nb_steps) / self.nb_days
+
+    # def calculate_bis_alpha(self) -> float : #a regarder
+    #     return exp(self.market.volatility  * sqrt (3 * self.delta_t))
 
     def build_tree(self):
-        n=self.root 
+        n=self.root #current node
         for i in range(self.nb_steps): #construit avec la boucle for le nb de noeud et donc le nb de root de 0 a T
             n=self.build_node_column(n) #pour chaque noeud, il faut construire les noeud du bas => def build_node_column
         #dividende ? car pas le n steps dans node
@@ -54,9 +75,9 @@ class Tree:
     def build_node_column(self,n : Node)-> Node:
         next_node= Node(self.market, self,n.forward_price)
 
-        self.build_block(n)
+        n.build_block(next_node)
         n1 = n
-        while n1.down_node is not None: #tant que le noeud down != 0
+        while n1.down_node is not None: #tant que le noeud down != 0 donc jusq'a qu'il y ait un noeud a executer
             n1=n1.down_node #on affecte a n1 le noeud down
             n1.build_block(next_node) 
             #a partir du noeud down(n1 donc) on construit les 3 prochains=es branches4
@@ -66,6 +87,8 @@ class Tree:
         while n2.up_node is not None:
             n2=n2.up_node
             n2.build_block(next_node)
+
+        #return self.next_mid
 
     # def build_node_column(self, n: Node) -> Node:
         
